@@ -12,6 +12,8 @@ def read_xls_column_to_list(file_path):
     # 取得第一欄 (Column 1) 的資料並轉換成 list
     column_1_list = df.iloc[:, 0].tolist()  # iloc[:, 0] 取出第一欄
     
+
+    # Add additional comments to test GitHub.
     return column_1_list
 
 
