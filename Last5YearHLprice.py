@@ -14,6 +14,8 @@ def read_xls_column_to_list(file_path):
     
 
     # Add additional comments to test GitHub.
+    # Add 2nd comments to test GitHub.
+    
     return column_1_list
 
 
