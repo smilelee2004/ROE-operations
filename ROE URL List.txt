@@ -1,0 +1,8 @@
+https://www.marketwatch.com/investing/Stock/EAT/financials/income/quarter
+https://www.marketwatch.com/investing/Stock/EAT/financials/balance-sheet/quarter
+https://www.marketwatch.com/investing/Stock/EAT/financials
+https://www.marketwatch.com/investing/Stock/EAT/financials/balance-sheet
+ https://finance.yahoo.com/quote/EAT/history?period1=573436800&period2=1713270369&interval=1mo&filter=history&frequency=1mo
+ https://www.marketwatch.com/investing/stock/EAT/company-profile
+ https://www.marketwatch.com/investing/Stock/EAT/financials/cash-flow
+ https://www.gurufocus.com/stock/EAT/guru-trades
