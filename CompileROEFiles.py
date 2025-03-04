@@ -2,6 +2,11 @@ import pandas as pd
 import os
 from datetime import datetime
 from openpyxl import load_workbook
+from tqdm import tqdm
+import threading
+import tkinter as tk
+from tkinter import messagebox
+from tkinter import ttk  # 導入 ttk 模組
 
 def read_xls_column_to_list(file_path):
     # 讀取 xlsm 檔案
@@ -13,12 +18,16 @@ def read_xls_column_to_list(file_path):
     
     return column_1_list
 
-def process_files(base_path, file_list, output_file):
+def process_files(base_path, file_list, output_file, progress_var, cancel_event, root):
     all_data = []
     count = 0
     headers_written = False
 
-    for file_name in file_list:
+    for file_name in tqdm(file_list, desc="Processing files", unit="file"):
+        if cancel_event.is_set():
+            print("Processing cancelled")
+            break
+
         # 直接使用 file_name 來生成 file_path
         file_path = os.path.join(base_path, f"{file_name}.xlsm")
         
@@ -79,8 +88,12 @@ def process_files(base_path, file_list, output_file):
         all_data.append(data)
         count += 1
         
+        # 更新進度條
+        progress_var.set(count)
+        root.update_idletasks()
+        
         # 每 10 筆資料寫檔一次
-        if count % 6 == 0:
+        if count % 10 == 0:
             combined_data = pd.DataFrame(all_data)
             if not headers_written:
                 combined_data.to_excel(output_file, sheet_name='美股', index=False, engine='openpyxl')
@@ -110,8 +123,29 @@ def main():
     # 呼叫函數，讀取 a_file_path 檔案並將第一欄資料存入 list
     file_list = read_xls_column_to_list(a_file_path)
     
-    # 處理對應的 xlsm 檔案並將資料寫入以當日日期為檔名的 xlsm 檔案
-    process_files(base_path, file_list, output_file)
+    # 創建進度條和取消按鈕
+    root = tk.Tk()
+    root.title("Processing Files")
+    
+    progress_var = tk.DoubleVar()
+    progress_bar = ttk.Progressbar(root, variable=progress_var, maximum=len(file_list))  # 使用 ttk.Progressbar
+    progress_bar.pack(fill=tk.X, expand=1, padx=10, pady=10)
+    
+    cancel_event = threading.Event()
+    
+    def cancel():
+        cancel_event.set()
+        messagebox.showinfo("Cancelled", "Processing has been cancelled.")
+    
+    cancel_button = tk.Button(root, text="Cancel", command=cancel)
+    cancel_button.pack(pady=10)
+    
+    def run_processing():
+        process_files(base_path, file_list, output_file, progress_var, cancel_event, root)
+        root.quit()
+    
+    threading.Thread(target=run_processing).start()
+    root.mainloop()
 
 # 檢查是否直接執行此檔案
 if __name__ == "__main__":
