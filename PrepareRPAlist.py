@@ -1,3 +1,4 @@
+# 把 a.xlsx裡面的每個 sotck ID, 加上適當的 URL 內容, 輸出到 RPA下載清單.xlsx, 方便使用.
 import pandas as pd
 from openpyxl import load_workbook, Workbook
 import os
@@ -71,7 +72,7 @@ def copy_b_to_k(b_file):
     wb.save(b_file)
 
 def main():
-    a_file = r"D:\work\me\what\company\system\資訊處理循環\tools\RPA\a.xlsx"
+    a_file = r"D:\work\me\what\company\system\資訊處理循環\tools\盈再表\a.xlsx"
     b_file = r"D:\work\me\what\company\system\資訊處理循環\tools\RPA\RPA下載清單.xlsx"
     
     # 複製 a.xlsx 的第一欄到 b.xlsx 的第一欄

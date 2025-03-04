@@ -1,3 +1,4 @@
+# 將 a.xlsx 檔案裡面的 stock ID , 依次把每個 Stock ID 的盈再表裡的關鍵數值, 輸出到yyyymmdd.xlsx 裡面, 方便複製到 monitorlist 裡面.async 
 import pandas as pd
 import os
 from datetime import datetime
@@ -32,7 +33,7 @@ def process_files(base_path, file_list, output_file, progress_var, cancel_event,
         file_path = os.path.join(base_path, f"{file_name}.xlsm")
         
         if os.path.exists(file_path):
-            print(f"Processing file: {file_path}")
+#            #print(f"Processing file: {file_path}")
             try:
                 # 讀取對應的 xlsm 檔案
                 wb = load_workbook(file_path, data_only=True, read_only=False)
@@ -42,7 +43,7 @@ def process_files(base_path, file_list, output_file, progress_var, cancel_event,
                 o10_p15 = [[cell.value for cell in row] for row in sheet.iter_rows(min_row=10, max_row=15, min_col=15, max_col=16)]
                 max_value = max(max(row) for row in o10_p15)  # 取得最大值
                 min_value = min(min(row) for row in o10_p15)  # 取得最小值
-                print(f"ROE {sheet.cell(row=13, column=22).value}")
+#                #print(f"ROE {sheet.cell(row=13, column=22).value}")
                 # 取得特定欄位的資料
                 data = {
                     '代號': file_name,  # 加入 file_name
@@ -61,14 +62,14 @@ def process_files(base_path, file_list, output_file, progress_var, cancel_event,
                 # 如果讀取失敗，只填入 file_name，其他欄位保持空白
                 data = {
                     '代號': file_name,
-                    'ROE': None,
+                    'ROE': sheet.cell(row=13, column=22).value,  # V13,
                     '手調貴': None,
                     '手調淑': None,
-                    '貴價': None,
-                    '淑價': None,
-                    '現價': None,
-                    '預期報酬': None,
-                    '財報': None,
+                    '貴價': sheet.cell(row=7, column=11).value,    # K7
+                    '淑價': sheet.cell(row=5, column=11).value,    # K5
+                    '現價': sheet.cell(row=3, column=11).value,    # K3
+                    '預期報酬': sheet.cell(row=4, column=11).value,    # K4
+                    '財報': sheet.cell(row=24, column=1).value,   # A24
                     '檔案路徑': f'=HYPERLINK("{file_path}", "點我開啟檔案")'
                 }
         else:
@@ -125,7 +126,7 @@ def main():
     
     # 創建進度條和取消按鈕
     root = tk.Tk()
-    root.title("Processing Files")
+    root.title("盈再表 --> Monoitor list Processing ...")
     
     progress_var = tk.DoubleVar()
     progress_bar = ttk.Progressbar(root, variable=progress_var, maximum=len(file_list))  # 使用 ttk.Progressbar
