@@ -5,6 +5,7 @@ from tqdm import tqdm
 import threading
 import tkinter as tk
 from tkinter import ttk, messagebox
+import time
 
 cancel_flag = False
 
@@ -30,7 +31,7 @@ def copy_b_to_k(b_file, progress_var, root):
     ws = wb[wb.sheetnames[0]]
     ws2 = wb.create_sheet("Sheet2")
     all_data = []
-    progressIndex = 2
+    historicalPeiord = int(time.time())  # 從1970/1/1到今日的總秒數
 
     data = {
         'StockID': "StockID",
@@ -58,7 +59,7 @@ def copy_b_to_k(b_file, progress_var, root):
             'AnnualBalanceSheet': f"https://www.marketwatch.com/investing/Stock/{ws.cell(row, 1).value}/financials/balance-sheet",
             'CompanyNameProfile': f"https://www.marketwatch.com/investing/stock/{ws.cell(row, 1).value}/company-profile",
             'AnnualCashflowStatement': f"https://www.marketwatch.com/investing/Stock/{ws.cell(row, 1).value}/financials/cash-flow",
-            'HistoricalStockPrice': f"https://finance.yahoo.com/quote/{ws.cell(row, 1).value}/history?period1=573436800&period2=1740960000&interval=1mo&filter=history&frequency=1mo",
+            'HistoricalStockPrice': f"https://finance.yahoo.com/quote/{ws.cell(row, 1).value}/history?period1=573436800&period2={historicalPeiord}&interval=1mo&filter=history&frequency=1mo",
         }
         all_data.append(data)
         progress_var.set((row - 1) / (max_row - 1) * 100)
