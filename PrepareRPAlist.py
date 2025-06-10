@@ -78,7 +78,7 @@ def main():
     global cancel_flag
     cancel_flag = False
 
-    a_file = r"D:\work\me\what\company\system\資訊處理循環\tools\盈再表\a.xlsx"
+    a_file = r"D:\work\me\what\company\system\資訊處理循環\tools\盈再表\MonitorList.xlsx"
     b_file = r"D:\work\me\what\company\system\資訊處理循環\tools\RPA\RPA下載清單.xlsx"
     
     root = tk.Tk()

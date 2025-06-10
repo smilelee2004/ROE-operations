@@ -1,4 +1,4 @@
-# 將 a.xlsx 檔案裡面的 stock ID , 依次把每個 Stock ID 的盈再表裡的關鍵數值, 輸出到yyyymmdd.xlsx 裡面, 方便複製到 monitorlist 裡面.async 
+# 將 MonitorList.xlsx 檔案裡面的 stock ID , 依次把每個 Stock ID 的盈再表裡的關鍵數值, 輸出到yyyymmdd.xlsx 裡面, 方便複製到 monitorlist 裡面.async 
 import pandas as pd
 import os
 from datetime import datetime
@@ -21,6 +21,8 @@ def read_xls_column_to_list(file_path):
 
 def process_files(base_path, file_list, output_file, progress_var, cancel_event, root):
     all_data = []
+    abnormal_data = []
+    abnormalFlag = False
     count = 0
     headers_written = False
 
@@ -57,6 +59,7 @@ def process_files(base_path, file_list, output_file, progress_var, cancel_event,
                     '財報': sheet.cell(row=24, column=1).value,   # A24
                     '檔案路徑': f'=HYPERLINK("{file_path}", "點我開啟檔案")'    # 加入 file_path
                 }
+                abnormalFlag = False
             except Exception as e:
                 print(f"Failed to process file: {file_path}, error: {e}")
                 # 如果讀取失敗，只填入 file_name，其他欄位保持空白
@@ -72,6 +75,8 @@ def process_files(base_path, file_list, output_file, progress_var, cancel_event,
                     '財報': sheet.cell(row=24, column=1).value,   # A24
                     '檔案路徑': f'=HYPERLINK("{file_path}", "點我開啟檔案")'
                 }
+                abnormalFlag = True
+
         else:
             print(f"File not found: {file_path}")
             data = {
@@ -86,7 +91,13 @@ def process_files(base_path, file_list, output_file, progress_var, cancel_event,
                 '財報': None,
                 '檔案路徑': f'=HYPERLINK("{file_path}", "點我開啟檔案")'
             }
+            abnormalFlag = True
+        
         all_data.append(data)
+        if abnormalFlag or data.get('預期報酬') == 'na':
+            # 如果有異常，或預期報酬為 'na'，將資料加入 abnormal_data
+            abnormal_data.append(data)
+        
         count += 1
         
         # 更新進度條
@@ -96,6 +107,7 @@ def process_files(base_path, file_list, output_file, progress_var, cancel_event,
         # 每 10 筆資料寫檔一次
         if count % 10 == 0:
             combined_data = pd.DataFrame(all_data)
+            combined_abnormal = pd.DataFrame(abnormal_data)
             if not headers_written:
                 combined_data.to_excel(output_file, sheet_name='美股', index=False, engine='openpyxl')
                 headers_written = True
@@ -103,6 +115,16 @@ def process_files(base_path, file_list, output_file, progress_var, cancel_event,
                 with pd.ExcelWriter(output_file, engine='openpyxl', mode='a', if_sheet_exists='overlay') as writer:
                     combined_data.to_excel(writer, sheet_name='美股', index=False, header=False, startrow=writer.sheets['美股'].max_row)
             all_data = []  # 清空 all_data
+
+             # 寫入異常資料
+            with pd.ExcelWriter(output_file, engine='openpyxl', mode='a', if_sheet_exists='overlay') as writer:
+                if '異常資料' in writer.sheets:
+                    startrow = writer.sheets['異常資料'].max_row
+                    combined_abnormal.to_excel(writer, sheet_name='異常資料', index=False, header=False, startrow=startrow)
+                else:
+                    combined_abnormal.to_excel(writer, sheet_name='異常資料', index=False)
+                #combined_abnormal.to_excel(writer, sheet_name='異常資料', index=False, header=False, startrow=writer.sheets['異常資料'].max_row)
+            abnormal_data = []  # 清空 abnormal_data
 
     # 寫入剩餘的資料
     if all_data:
@@ -115,7 +137,7 @@ def process_files(base_path, file_list, output_file, progress_var, cancel_event,
 
 def main():
     base_path = r"D:\work\me\what\company\system\資訊處理循環\tools\盈再表"  # 替換成實際的檔案路徑
-    a_file_path = r"D:\work\me\what\company\system\資訊處理循環\tools\盈再表\a.xlsx"
+    a_file_path = r"D:\work\me\what\company\system\資訊處理循環\tools\盈再表\MonitorList.xlsx"
     
     # 生成以當日日期為檔名的 xlsx 檔案
     today_date = datetime.now().strftime("%Y%m%d")
