@@ -41,10 +41,17 @@ def process_files(base_path, file_list, output_file, progress_var, cancel_event,
                 wb = load_workbook(file_path, data_only=True, read_only=False)
                 sheet = wb["美股"]  # 讀取名叫 "美股" 的工作表
                 
-                # 取得 O10 到 P15 區間的最大值與最小值
-                o10_p15 = [[cell.value for cell in row] for row in sheet.iter_rows(min_row=10, max_row=15, min_col=15, max_col=16)]
-                max_value = max(max(row) for row in o10_p15)  # 取得最大值
-                min_value = min(min(row) for row in o10_p15)  # 取得最小值
+                # 取得 O10 到 P15 區間的所有數值，排除 None
+                values = [cell.value for row in sheet.iter_rows(min_row=10, max_row=15, min_col=15, max_col=16) for cell in row if cell.value is not None]
+                if values:
+                    max_value = max(values)
+                    min_value = min(values)
+                    abnormalFlag = False
+                else:
+                    max_value = None
+                    min_value = None
+                    abnormalFlag = True
+                
 #                #print(f"ROE {sheet.cell(row=13, column=22).value}")
                 # 取得特定欄位的資料
                 data = {
@@ -59,7 +66,7 @@ def process_files(base_path, file_list, output_file, progress_var, cancel_event,
                     '財報': sheet.cell(row=24, column=1).value,   # A24
                     '檔案路徑': f'=HYPERLINK("{file_path}", "點我開啟檔案")'    # 加入 file_path
                 }
-                abnormalFlag = False
+                
             except Exception as e:
                 print(f"Failed to process file: {file_path}, error: {e}")
                 # 如果讀取失敗，只填入 file_name，其他欄位保持空白
@@ -134,6 +141,14 @@ def process_files(base_path, file_list, output_file, progress_var, cancel_event,
         else:
             with pd.ExcelWriter(output_file, engine='openpyxl', mode='a', if_sheet_exists='overlay') as writer:
                 combined_data.to_excel(writer, sheet_name='美股', index=False, header=False, startrow=writer.sheets['美股'].max_row)
+    if abnormal_data:
+        combined_abnormal = pd.DataFrame(abnormal_data)
+        with pd.ExcelWriter(output_file, engine='openpyxl', mode='a', if_sheet_exists='overlay') as writer:
+            if '異常資料' in writer.sheets:
+                startrow = writer.sheets['異常資料'].max_row
+                combined_abnormal.to_excel(writer, sheet_name='異常資料', index=False, header=False, startrow=startrow)
+            else:
+                combined_abnormal.to_excel(writer, sheet_name='異常資料', index=False)
 
 def main():
     base_path = r"D:\work\me\what\company\system\資訊處理循環\tools\盈再表"  # 替換成實際的檔案路徑
