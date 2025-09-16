@@ -5,6 +5,8 @@ import threading
 import tkinter as tk
 from tkinter import ttk, messagebox
 import time
+import requests
+from bs4 import BeautifulSoup
 
 cancel_flag = False
 
@@ -24,6 +26,28 @@ def copy_column_a_to_b(a_file, b_file):
         sheet_name = writer.book.sheetnames[0]
         df_a.to_excel(writer, sheet_name=sheet_name, index=False, header=False, startcol=0)
 
+def get_latest_report_date(stock_id):
+    url = f"https://www.marketwatch.com/investing/Stock/{stock_id}/financials/income/quarter"
+    try:
+        resp = requests.get(url, headers={"User-Agent": "Mozilla/5.0","Accept-Language": "en-US,en;q=0.9"})
+        soup = BeautifulSoup(resp.text, "html.parser")
+        # 依據 MarketWatch 頁面結構尋找最新財報日期
+        # 這裡假設日期在 class="Financials - data table" 的表格 header 內
+        table = soup.find("table", class_=["table", "table--overflow", "align--right"])
+        if table:
+            ths = table.find_all("th")
+            for th in ths:
+                if th.text.strip().startswith("Period Ending"):
+                    # 下一個 th 就是最新日期
+                    idx = ths.index(th)
+                    if idx + 1 < len(ths):
+                        return ths[idx + 1].text.strip()
+        # 若找不到則回傳空字串
+        return ""
+    except Exception as e:
+        print(f"Error fetching date for {stock_id}: {e}")
+        return ""
+
 def copy_b_to_k(b_file, progress_var, root):
     global cancel_flag
     wb = load_workbook(b_file)
@@ -34,13 +58,14 @@ def copy_b_to_k(b_file, progress_var, root):
 
     data = {
         'StockID': "StockID",
-        'QuarterlyIncomeStatement': f"QuarterlyIncomeStatement",
+          'QuarterlyIncomeStatement': f"QuarterlyIncomeStatement",
         'QuarterlyBalanceSheet': f"QuarterlyBalanceSheet",
         'AnnualIncomeStatement': f"AnnualIncomeStatement",
         'AnnualBalanceSheet': f"AnnualBalanceSheet",
         'CompanyNameProfile': f"CompanyNameProfile",
         'AnnualCashflowStatement': f"AnnualCashflowStatement",
         'HistoricalStockPrice': f"HistoricalStockPrice",
+        'MarketCapitalization': f"MarketCapitalization",  # 新增欄位
     }
     all_data.append(data)
     max_row = ws.max_row
@@ -49,16 +74,19 @@ def copy_b_to_k(b_file, progress_var, root):
         if cancel_flag:
             print("Operation cancelled.")
             break
-        testString = ws.cell(row, 1).value.replace('.', '-')
+        stock_id = ws.cell(row, 1).value
+        testString = stock_id.replace('.', '-')
+        #latest_date = get_latest_report_date(stock_id)
         data = {
-            'StockID': ws.cell(row, 1).value,
-            'QuarterlyIncomeStatement': f"https://www.marketwatch.com/investing/Stock/{ws.cell(row, 1).value}/financials/income/quarter",
-            'QuarterlyBalanceSheet': f"https://www.marketwatch.com/investing/Stock/{ws.cell(row, 1).value}/financials/balance-sheet/quarter",
-            'AnnualIncomeStatement': f"https://www.marketwatch.com/investing/Stock/{ws.cell(row, 1).value}/financials",
-            'AnnualBalanceSheet': f"https://www.marketwatch.com/investing/Stock/{ws.cell(row, 1).value}/financials/balance-sheet",
-            'CompanyNameProfile': f"https://www.marketwatch.com/investing/stock/{ws.cell(row, 1).value}/company-profile",
-            'AnnualCashflowStatement': f"https://www.marketwatch.com/investing/Stock/{ws.cell(row, 1).value}/financials/cash-flow",
+            'StockID': stock_id,
+            'QuarterlyIncomeStatement': f"https://www.marketwatch.com/investing/Stock/{stock_id}/financials/income/quarter",
+            'QuarterlyBalanceSheet': f"https://www.marketwatch.com/investing/Stock/{stock_id}/financials/balance-sheet/quarter",
+            'AnnualIncomeStatement': f"https://www.marketwatch.com/investing/Stock/{stock_id}/financials",
+            'AnnualBalanceSheet': f"https://www.marketwatch.com/investing/Stock/{stock_id}/financials/balance-sheet",
+            'CompanyNameProfile': f"https://www.marketwatch.com/investing/stock/{stock_id}/company-profile",
+            'AnnualCashflowStatement': f"https://www.marketwatch.com/investing/Stock/{stock_id}/financials/cash-flow",
             'HistoricalStockPrice': f"https://finance.yahoo.com/quote/{testString}/history?period1=573436800&period2={historicalPeiord}&interval=1mo&filter=history&frequency=1mo",
+            'MarketCapitalization':  f"https://www.gurufocus.com/stock/{stock_id}/guru-trades",
         }
         all_data.append(data)
         progress_var.set((row - 1) / (max_row - 1) * 100)
