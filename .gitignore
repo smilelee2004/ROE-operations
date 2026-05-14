@@ -35,3 +35,9 @@
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Cowork sandbox marker
+.cowork_access_test
+
+# SEC XBRL 衍生資料 (用 fetch_sec_xbrl.py 重抓)
+財報/
