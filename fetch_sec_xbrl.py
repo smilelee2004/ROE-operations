@@ -58,22 +58,26 @@ them as NOT_REGISTERED and continues.
 Usage::
 
     pip install openpyxl
-    python fetch_sec_xbrl.py \
-        --list MonitorList.xlsx \
-        --email "you@example.com"
+    # By default --list points to:
+    #   D:\work\me\what\company\system\資訊處理循環\tools\MonitorList.xlsx
+    python fetch_sec_xbrl.py --email "you@example.com"
     # -> writes to D:\work\SourceCode\ROE-operations\財報\ by default
 
+    # Override the input list if you want a different file:
+    python fetch_sec_xbrl.py \
+        --list D:\other\path\MonitorList.xlsx \
+        --email "you@example.com"
+
     # Override the output folder if you want somewhere else:
-    python fetch_sec_xbrl.py --list MonitorList.xlsx \
-        --outdir D:\other\path\財報 --email you@example.com
+    python fetch_sec_xbrl.py --outdir D:\other\path\財報 \
+        --email you@example.com
 
     # Also grab each issuer's latest 10-K / 20-F primary document:
-    python fetch_sec_xbrl.py --list MonitorList.xlsx \
-        --email you@example.com --with-instance
+    python fetch_sec_xbrl.py --email you@example.com --with-instance
 
     # Only (re)fetch a subset:
-    python fetch_sec_xbrl.py --list MonitorList.xlsx \
-        --email you@example.com --tickers TM,NFLX,ABNB
+    python fetch_sec_xbrl.py --email you@example.com \
+        --tickers TM,NFLX,ABNB
 
 Re-running is safe: by default existing files are skipped; pass --force
 to overwrite.
@@ -438,8 +442,10 @@ def main() -> int:
         description=__doc__.split("\n\n")[0],
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    ap.add_argument("--list",   type=Path, required=True,
-                    help="Path to MonitorList.xlsx")
+    ap.add_argument("--list",   type=Path,
+                    default=Path(r"D:\work\me\what\company\system\資訊處理循環\tools\MonitorList.xlsx"),
+                    help=r"Path to MonitorList.xlsx "
+                         r"(default: D:\work\me\what\company\system\資訊處理循環\tools\MonitorList.xlsx)")
     ap.add_argument("--outdir", type=Path,
                     default=Path(r"D:\work\SourceCode\ROE-operations\財報"),
                     help=r"Root folder to save per-ticker data "
