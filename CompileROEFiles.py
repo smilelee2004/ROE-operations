@@ -11,18 +11,54 @@ from tkinter import ttk  # 導入 ttk 模組
 from tkinter import filedialog  # 導入資料夾選擇對話框
 
 def read_xls_column_to_list(file_path):
-    # 讀取 xlsm 檔案
+    """讀 MonitorList 第一欄的代號清單，只取真正有值的列。
+
+    為什麼要濾：Excel 的「已使用範圍」常被撐得比實際資料長很多（儲存格編輯過
+    再清空就會留下痕跡），iter_rows 會一路讀到那裡，尾巴全是 None。
+    盈再表_輸出\\MonitorList.xlsx 就是讀出 720 列、其中 281 列是 None，
+    而 find_roe_file() 會把 None 用 str() 變成字串 "None" 去組檔名，
+    於是刷出 281 行 "File not found: ...\\None_SEC.xlsx"。
+    """
     wb = load_workbook(file_path, read_only=True)
-    sheet = wb.active
+    try:
+        sheet = wb.active
+        codes, seen = [], set()
+        for row in sheet.iter_rows(min_row=2, min_col=1, max_col=1, values_only=True):
+            value = row[0]
+            if value is None:
+                continue
+            code = str(value).strip()
+            if not code or code.lower() in ("none", "nan"):
+                continue
+            if code in seen:          # 清單偶有重複，重複跑只是白做工
+                continue
+            seen.add(code)
+            codes.append(code)
+        return codes
+    finally:
+        wb.close()
 
-    # 取得第一欄 (Column 1) 的資料並轉換成 list
-    column_1_list = [row[0] for row in sheet.iter_rows(min_row=2, min_col=1, max_col=1, values_only=True)]
+# MonitorList 的唯一權威位置。
+# 2026-09-05 之前，三支工具各讀各的副本：run_full_pipeline 讀 盈再表\、
+# 本程式讀使用者選的目錄（實務上是 盈再表_輸出\）、tools\ 那份反而沒人讀，
+# 而且三份內容不一樣（多 CCL / 少 CUK、HOLX，多已下市的 RBGLD …），
+# 導致「pipeline 跑的標的」與「收尾總表的標的」長期對不起來。
+# 現在一律以 tools\MonitorList.xlsx 為準；可用環境變數 YZB_MONITORLIST 覆寫。
+WORKSPACE_MONITORLIST = os.environ.get(
+    "YZB_MONITORLIST",
+    r"D:\work\me\what\company\system\資訊處理循環\tools\MonitorList.xlsx")
 
-    return column_1_list
 
 def find_monitorlist(base_path):
-    """在指定目錄中尋找 monitorlist 檔案 (不分大小寫，支援 .xlsx / .xlsm / .xls)。
-    找到回傳完整路徑，找不到回傳 None。"""
+    """取得 MonitorList 路徑。
+
+    優先用唯一權威位置 (WORKSPACE_MONITORLIST)；那份不存在時，才退回舊行為
+    ——在使用者選的目錄裡找 monitorlist*.xlsx/.xlsm/.xls。
+    找不到回傳 None。"""
+    if os.path.isfile(WORKSPACE_MONITORLIST):
+        return WORKSPACE_MONITORLIST
+    print(f"[警告] 找不到權威 MonitorList：{WORKSPACE_MONITORLIST}")
+    print(f"       退回在所選目錄尋找：{base_path}")
     if not os.path.isdir(base_path):
         return None
     # 依優先順序檢查副檔名
@@ -76,6 +112,22 @@ def find_roe_file(base_path, file_name):
     # 都找不到，回傳預設路徑 (os.path.exists 仍會是 False)
     return os.path.join(base_path, f"{code}_SEC.xlsx")
 
+def blank_row(code, file_path):
+    """讀不到內容時的空白列 —— 仍保留代號，讓輸出看得出這一檔沒抓到。"""
+    return {
+        '代號': code,
+        'ROE': None,
+        '手調貴': None,
+        '手調淑': None,
+        '貴價': None,
+        '淑價': None,
+        '現價': None,
+        '預期報酬': None,
+        '財報': None,
+        '檔案路徑': f'=HYPERLINK("{file_path}", "點我開啟檔案")'
+    }
+
+
 def process_files(base_path, file_list, output_file, progress_var, cancel_event, root):
     all_data = []
     abnormal_data = []
@@ -93,9 +145,12 @@ def process_files(base_path, file_list, output_file, progress_var, cancel_event,
 
         if os.path.exists(file_path):
 #            #print(f"Processing file: {file_path}")
+            wb = None
             try:
                 # 讀取對應的 xlsm 檔案
                 wb = load_workbook(file_path, data_only=True, read_only=False)
+                if "美股" not in wb.sheetnames:
+                    raise KeyError(f"活頁簿沒有『美股』工作表 (實際有: {wb.sheetnames})")
                 sheet = wb["美股"]  # 讀取名叫 "美股" 的工作表
                 
                 # 取得 O10 到 P15 區間的所有數值，排除 None
@@ -125,36 +180,23 @@ def process_files(base_path, file_list, output_file, progress_var, cancel_event,
                 }
                 
             except Exception as e:
-                print(f"Failed to process file: {file_path}, error: {e}")
-                # 如果讀取失敗，只填入 file_name，其他欄位保持空白
-                data = {
-                    '代號': file_name,
-                    'ROE': sheet.cell(row=13, column=22).value,  # V13,
-                    '手調貴': None,
-                    '手調淑': None,
-                    '貴價': sheet.cell(row=7, column=11).value,    # K7
-                    '淑價': sheet.cell(row=5, column=11).value,    # K5
-                    '現價': sheet.cell(row=3, column=11).value,    # K3
-                    '預期報酬': sheet.cell(row=4, column=11).value,    # K4
-                    '財報': sheet.cell(row=24, column=1).value,   # A24
-                    '檔案路徑': f'=HYPERLINK("{file_path}", "點我開啟檔案")'
-                }
+                # 舊版這裡照樣去讀 sheet.cell(...)，但若爆的是 load_workbook 或
+                # wb["美股"]，sheet 根本還沒被賦值 → except 內再拋 NameError，
+                # 反而把真正的錯誤訊息蓋掉。改成完全不依賴 sheet。
+                print(f"Failed to process file: {file_path}, error: {type(e).__name__}: {e}")
+                data = blank_row(file_name, file_path)
                 abnormalFlag = True
+            finally:
+                # 舊版從不關檔；440 個 790KB 的活頁簿累積下來，檔案握把與記憶體都會漲。
+                if wb is not None:
+                    try:
+                        wb.close()
+                    except Exception:
+                        pass
 
         else:
             print(f"File not found: {file_path}")
-            data = {
-                '代號': file_name,
-                'ROE': None,
-                '手調貴': None,
-                '手調淑': None,
-                '貴價': None,
-                '淑價': None,
-                '現價': None,
-                '預期報酬': None,
-                '財報': None,
-                '檔案路徑': f'=HYPERLINK("{file_path}", "點我開啟檔案")'
-            }
+            data = blank_row(file_name, file_path)
             abnormalFlag = True
         
         all_data.append(data)
@@ -242,8 +284,10 @@ def main():
         print(f"找不到 MonitorList 檔案於：{base_path}")
         return
 
-    print(f"來源目錄：{base_path}")
-    print(f"MonitorList 檔案：{a_file_path}")
+    print(f"盈再表來源目錄：{base_path}")
+    print(f"MonitorList    ：{a_file_path}")
+    if os.path.normcase(os.path.abspath(a_file_path)) != os.path.normcase(os.path.abspath(WORKSPACE_MONITORLIST)):
+        print("  ⚠ 這不是權威位置的 MonitorList，標的清單可能與 pipeline 跑的不一致")
 
     # 生成以當日日期為檔名的 xlsx 檔案
     today_date = datetime.now().strftime("%Y%m%d")
